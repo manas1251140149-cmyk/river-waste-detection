@@ -1,47 +1,48 @@
 package com.riverdetect;
 
-import com.riverdetect.models.WasteCategory;
 import com.riverdetect.models.WasteObject;
 import com.riverdetect.segregation.SegregationEngine;
 import com.riverdetect.segregation.SegregationResult;
 import com.riverdetect.tracking.ObjectTracker;
 import com.riverdetect.tracking.Track;
+import com.riverdetect.ui.MainWindow;
 
-import java.util.ArrayList;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
-        System.out.println("River Waste Detection System starting...");
+        SwingUtilities.invokeLater(Main::launch);
+    }
 
+    private static void launch() {
         SegregationEngine engine = new SegregationEngine(0.5);
         ObjectTracker tracker = new ObjectTracker();
-        int perFrameTotal = 0;
+        MockFeed feed = new MockFeed();
 
-        for (int f = 0; f < 10; f++) {
-            List<WasteObject> frame = new ArrayList<>();
-            frame.add(new WasteObject(WasteCategory.PLASTIC, 0.90, 100 + 5 * f, 100, 60, 40));
-            if (f >= 3) {
-                frame.add(new WasteObject(WasteCategory.METAL, 0.80, 300, 200, 40, 40));
-            }
-            if (f == 5) {
-                frame.add(new WasteObject(WasteCategory.GLASS, 0.80, 450, 50, 30, 30));
-            }
+        MainWindow window = new MainWindow(
+                engine.getConfidenceThreshold(),
+                engine::setConfidenceThreshold,
+                tracker::reset);
+        window.setVisible(true);
 
-            SegregationResult result = engine.segregate(frame);
+        long[] lastTick = {System.nanoTime()};
+        double[] fps = {0.0};
+
+        Timer timer = new Timer(33, e -> {
+            long now = System.nanoTime();
+            double instant = 1e9 / Math.max(1, now - lastTick[0]);
+            fps[0] = fps[0] == 0.0 ? instant : 0.9 * fps[0] + 0.1 * instant;
+            lastTick[0] = now;
+
+            feed.next();
+            SegregationResult result = engine.segregate(feed.detections());
             List<WasteObject> accepted = result.getAllBins().values().stream()
                     .flatMap(List::stream).toList();
             List<Track> visible = tracker.update(accepted);
-
-            perFrameTotal += result.getTotalCount();
-            System.out.printf("Frame %d: detected=%d, confirmed tracks=%d%n",
-                    f, result.getTotalCount(), visible.size());
-        }
-
-        System.out.println("Per-frame counting total: " + perFrameTotal);
-        System.out.println("Unique objects (tracked): " + tracker.getTotalUniqueCount());
-        for (WasteCategory c : WasteCategory.values()) {
-            System.out.printf("%-8s %d%n", c.getDisplayName(), tracker.getUniqueCount(c));
-        }
+            window.update(feed.frame(), visible, result, tracker, fps[0]);
+        });
+        timer.start();
     }
 }
