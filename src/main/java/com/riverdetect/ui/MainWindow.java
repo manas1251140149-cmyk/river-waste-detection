@@ -1,5 +1,6 @@
 package com.riverdetect.ui;
 
+import com.formdev.flatlaf.FlatDarkLaf;
 import com.riverdetect.models.WasteCategory;
 import com.riverdetect.segregation.SegregationResult;
 import com.riverdetect.tracking.ObjectTracker;
@@ -16,6 +17,10 @@ import java.util.Map;
 import java.util.function.DoubleConsumer;
 
 public class MainWindow extends JFrame {
+    static {
+        FlatDarkLaf.setup();
+    }
+
     private final VideoPanel videoPanel = new VideoPanel();
     private final StatsPanel statsPanel;
 
