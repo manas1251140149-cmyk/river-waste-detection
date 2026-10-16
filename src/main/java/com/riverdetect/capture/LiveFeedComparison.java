@@ -16,6 +16,11 @@ import java.awt.image.BufferedImage;
  *   mvn compile exec:java -Dexec.mainClass=com.riverdetect.capture.LiveFeedComparison
  * (or just press Run on this class in your IDE)
  *
+ * Frame source:
+ *   no arguments     -> laptop webcam
+ *   remote [port]    -> frames sent by the Raspberry Pi (default port 8081)
+ *                       (in IntelliJ: Run > Edit Configurations > Program arguments)
+ *
  * Checkboxes at the bottom switch each preprocessing step on/off live.
  * Press the window's close button to quit.
  */
@@ -24,11 +29,24 @@ public class LiveFeedComparison {
     private static final int TARGET_FPS = 30;
 
     public static void main(String[] args) {
-        ImageCaptureModule camera = new ImageCaptureModule();
-        if (!camera.open()) {
-            System.err.println("Could not open the webcam. Close other apps using it "
-                    + "(Zoom, Teams, browser tabs) and check camera permissions.");
-            return;
+        // Usage:  (no args)        -> laptop webcam
+        //         remote [port]    -> frames sent by the Raspberry Pi (default port 8081)
+        FrameSource camera;
+        if (args.length > 0 && args[0].equalsIgnoreCase("remote")) {
+            int port = args.length > 1 ? Integer.parseInt(args[1]) : 8081;
+            camera = new RemoteFrameSource(port);
+            if (!camera.open()) {
+                return;
+            }
+            System.out.println("Waiting for the Pi to send frames to port " + port
+                    + " (POST /frame). Allow Java through the Windows firewall if asked.");
+        } else {
+            camera = new ImageCaptureModule();
+            if (!camera.open()) {
+                System.err.println("Could not open the webcam. Close other apps using it "
+                        + "(Zoom, Teams, browser tabs) and check camera permissions.");
+                return;
+            }
         }
 
         PreprocessingConfig config = new PreprocessingConfig();
@@ -37,7 +55,7 @@ public class LiveFeedComparison {
         SwingUtilities.invokeLater(() -> buildAndShowWindow(camera, preprocessor, config));
     }
 
-    private static void buildAndShowWindow(ImageCaptureModule camera,
+    private static void buildAndShowWindow(FrameSource camera,
                                            PreprocessingModule preprocessor,
                                            PreprocessingConfig config) {
         JFrame frame = new JFrame("Raw vs Preprocessed");

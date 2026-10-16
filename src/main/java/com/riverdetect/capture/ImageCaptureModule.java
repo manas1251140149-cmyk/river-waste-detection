@@ -19,7 +19,7 @@ import org.opencv.videoio.Videoio;
  * NOTE: the caller owns every Mat returned by getFrame() and should call
  * release() on it when done, otherwise native memory slowly leaks.
  */
-public class ImageCaptureModule implements AutoCloseable {
+public class ImageCaptureModule implements FrameSource {
 
     static {
         // Safe to call more than once; loads the native OpenCV library.
